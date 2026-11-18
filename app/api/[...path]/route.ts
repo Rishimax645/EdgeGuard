@@ -1,4 +1,5 @@
 import {env} from 'cloudflare:workers';
+import {authorized} from '../../../lib/dashboard-auth';
 const defaults={temperature:50,mq135:1500,mq2:1500,telegram:false};
 function response(data:unknown,status=200){return Response.json(data,{status,headers:{'Cache-Control':'no-store'}})}
 async function cfg(key:string,fallback:any=null){const row=await env.DB!.prepare('SELECT value FROM configs WHERE key=?').bind(key).first<{value:string}>();return row?JSON.parse(row.value):fallback}
@@ -13,20 +14,31 @@ async function notify(id:string,title:string,detail:string,mode:string){
  await env.DB!.prepare('UPDATE events SET notification=? WHERE id=?').bind(state,id).run();
 }
 export async function GET(req:Request){
- if(!req.headers.get('oai-authenticated-user-id'))return response({error:'Sign in to access this workspace.'},401);
- try{const settings=await cfg('settings',defaults);const events=await env.DB!.prepare('SELECT * FROM events ORDER BY created DESC LIMIT 300').all();const rows=await env.DB!.prepare('SELECT * FROM readings ORDER BY created DESC LIMIT 120').all();return response({settings,events:events.results,readings:rows.results,telegram:{configured:!!(env as any).TELEGRAM_BOT_TOKEN,linked:!!await cfg('telegram_chat')}})}catch{return response({error:'Workspace storage is unavailable. Please retry.'},503)}
+ if(!await authorized(req,(env as any).DASHBOARD_KEY))return response({error:'Unlock the workspace with your dashboard key. Configure DASHBOARD_KEY (32+ random characters) in Cloudflare secrets first.'},401);
+ try{const settings=await cfg('settings',defaults);const events=await env.DB!.prepare('SELECT * FROM events ORDER BY created DESC LIMIT 300').all();const rows=await env.DB!.prepare('SELECT * FROM readings ORDER BY created DESC LIMIT 120').all();return response({settings,events:events.results,readings:rows.results,telegram:{configured:!!(env as any).TELEGRAM_BOT_TOKEN,linked:!!await cfg('telegram_chat')}})}catch{return response({error:'Database not initialized or unavailable. Use Settings → Initialize database, or check the DB binding in Cloudflare.'},503)}
 }
 export async function POST(req:Request){
  const path=new URL(req.url).pathname.split('/').pop();
- const signed=!!req.headers.get('oai-authenticated-user-id');
+ const signed=await authorized(req,(env as any).DASHBOARD_KEY);
  if(path==='readings'){
   const key=(env as any).DEVICE_API_KEY;
-  if(!key||req.headers.get('Authorization')!==`Bearer ${key}`)return response({error:'Device credential required.'},401);
+  if(!await authorized(req,key))return response({error:'Device credential required.'},401);
  }else if(!signed)return response({error:'Sign in required.'},401);
  const origin=req.headers.get('origin');if(origin&&origin!==new URL(req.url).origin)return response({error:'Invalid origin'},403);
  if(Number(req.headers.get('content-length')||0)>8192)return response({error:'Payload too large'},413);
  try{
  const body=await req.json() as any;
+ if(path==='initialize'){
+  if(!env.DB)return response({error:'Bind the edgeguard-db D1 database as DB first.'},503);
+  await env.DB.batch([
+   env.DB.prepare('CREATE TABLE IF NOT EXISTS configs (key TEXT PRIMARY KEY NOT NULL,value TEXT NOT NULL)'),
+   env.DB.prepare('CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY NOT NULL,created INTEGER NOT NULL,kind TEXT NOT NULL,title TEXT NOT NULL,detail TEXT NOT NULL,mode TEXT NOT NULL,state TEXT NOT NULL,notification TEXT NOT NULL)'),
+   env.DB.prepare('CREATE TABLE IF NOT EXISTS readings (id TEXT PRIMARY KEY NOT NULL,created INTEGER NOT NULL,payload TEXT NOT NULL)'),
+   env.DB.prepare('CREATE INDEX IF NOT EXISTS readings_created ON readings(created)'),
+   env.DB.prepare('CREATE INDEX IF NOT EXISTS events_created ON events(created)')
+  ]);return response({ok:true});
+ }
+
  if(path==='settings'){
   const s={temperature:Number(body.temperature),mq135:Number(body.mq135),mq2:Number(body.mq2),telegram:body.telegram===true};
   if(!Number.isFinite(s.temperature)||s.temperature<0||s.temperature>300||!Number.isFinite(s.mq135)||s.mq135<1||s.mq135>2500||!Number.isFinite(s.mq2)||s.mq2<1||s.mq2>2500)return response({error:'Temperature must be 0–300 °C; gas thresholds 1–2500 mV.'},400);

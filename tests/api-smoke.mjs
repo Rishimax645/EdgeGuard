@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+const base=process.env.TEST_BASE_URL||'http://127.0.0.1:8787';
+if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw Error('Smoke test is for local disposable databases only.');
+const key='local_test_owner_key_01234567890123456789';
+async function call(path,body,keyValue=key,extra={}){const r=await fetch(base+'/api/'+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(keyValue?{Authorization:'Bearer '+keyValue}:{}),...extra},body:body===undefined?undefined:JSON.stringify(body)});return {status:r.status,body:await r.json()}}
+assert.equal((await call('state',undefined,'',{'oai-authenticated-user-id':'forged'})).status,401);
+assert.equal((await call('initialize',{},'wrong')).status,401);
+assert.equal((await call('initialize',{})).status,200);
+assert.equal((await call('initialize',{})).status,200);
+assert.equal((await call('state')).status,200);
+assert.equal((await call('settings',{temperature:-1,mq135:1500,mq2:1500})).status,400);
+assert.equal((await call('incident',{scenario:'gas'})).status,200);
+assert.equal((await call('incident',{scenario:'gas'})).body.deduplicated,true);
+const events=(await call('state')).body.events;
+const e=events.find(e=>e.kind==='gas'&&e.state!=='resolved');assert.ok(e);
+assert.equal((await call('event',{id:e.id,state:'resolved'})).status,200);
+assert.equal((await call('readings',{})).status,401);
+assert.equal((await call('telegram-test',{})).status,400);
+assert.equal((await call('initialize',{},key,{Origin:'https://example.invalid'})).status,403);
+console.log('PASS: auth, forged-header rejection, initialization, persistence, validation, incident deduplication/resolution, device isolation, Telegram setup guard, cross-origin rejection');
