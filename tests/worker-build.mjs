@@ -1,0 +1,10 @@
+import {readdirSync,readFileSync,existsSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const root='dist/client';
+const files=readdirSync(root+'/_next/static/chunks').filter(f=>f.startsWith('page-')&&f.endsWith('.js'));
+assert.ok(files.length,'Built page exists');
+const source=files.map(f=>readFileSync(root+'/_next/static/chunks/'+f,'utf8')).join('\n');
+assert.ok(!/new Worker\(new URL\([^)]*file:\/\//.test(source),'Worker must not use a filesystem URL');
+const match=source.match(/new Worker\([`"]([^`"]*inference\.worker[^`"]+)[`"]/);
+assert.ok(match,'Bundled worker uses a website URL');assert.ok(match[1].startsWith('/_next/static/'));assert.ok(existsSync(root+match[1]),'Worker asset exists');
+console.log('PASS: production worker URL and bundled asset');

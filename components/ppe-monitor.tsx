@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useRef,useState,type RefObject} from 'react';
+import PpeWorker from '../lib/ppe/inference.worker?worker';
 import {Confirmation,type Detection,type Evidence} from '../lib/ppe/rules';
 type Props={video:RefObject<HTMLVideoElement|null>;helmet:boolean;gloves:boolean;onViolation:(e:Evidence)=>Promise<void>};
 export default function PpeMonitor({video,helmet,gloves,onViolation}:Props){
@@ -7,7 +8,7 @@ export default function PpeMonitor({video,helmet,gloves,onViolation}:Props){
  const latest=useRef({helmet,gloves,onViolation});latest.current={helmet,gloves,onViolation};
  useEffect(()=>{let disposed=false,ready=false,inflight=false,last=0;const confirmation=new Confirmation(),sent=new Map<string,number>();let worker:Worker;
  setError('');setStatus('Loading PPE model…');setBoxes([]);setWarning('');
- try{worker=new Worker(new URL('../lib/ppe/inference.worker.ts',import.meta.url),{type:'module'});}catch{setError('This browser cannot start camera AI. Use a recent Chrome or Edge browser.');return}
+ try{worker=new PpeWorker();}catch(e){setError('Cannot start PPE engine: '+(e instanceof Error?e.message:'Worker unavailable'));return}
  const fail=(message:string)=>{if(disposed)return;ready=false;inflight=false;confirmation.reset();setBoxes([]);setWarning('');setError(message);worker.terminate()};
  worker.onerror=()=>fail('PPE engine could not start. Check model access, then retry.');
  const loadTimeout=setTimeout(()=>fail('Model loading timed out. Check your internet connection and retry.'),210000);
