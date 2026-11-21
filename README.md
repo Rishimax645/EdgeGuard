@@ -29,3 +29,6 @@ GitHub stores this source; Cloudflare hosts the application. The previous ChatGP
 - .openai/hosting.json: existing Site deployment identity, not a credential.
 
 Secrets, node_modules, generated builds, database state and runtime caches are excluded by .gitignore.
+
+## PPE beta v1.1
+Local helmet/glove inference and warning recording are now integrated. See [PPE_MODEL.md](PPE_MODEL.md) for setup, model license, validation and limitations. Earlier camera-preview-only notes above describe the previous release. No hardware is needed for camera analysis.

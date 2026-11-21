@@ -45,3 +45,6 @@ For local use, put only test secrets in ignored .dev.vars. Initialize the local 
 ## Limits and status
 Camera preview is implemented. Automated helmet/glove detection needs a trained model. Hardware readings require assembled and calibrated sensors. This is an academic prototype, not a certified safety/compliance system.
 Cloudflare deployment, account-specific D1 provisioning and real Telegram delivery must be verified after deployment. Free-plan resource usage must be monitored; high-frequency ingestion writes multiple records per sample.
+
+## PPE beta v1.1
+Local helmet/glove inference and warning recording are now integrated. See [PPE_MODEL.md](PPE_MODEL.md) for setup, model license, validation and limitations. Earlier camera-preview-only notes above describe the previous release. No hardware is needed for camera analysis.

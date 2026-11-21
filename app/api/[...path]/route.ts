@@ -1,6 +1,7 @@
 import {env} from 'cloudflare:workers';
 import {authorized} from '../../../lib/dashboard-auth';
-const defaults={temperature:50,mq135:1500,mq2:1500,telegram:false};
+import {MODEL_ID} from '../../../lib/ppe/rules';
+const defaults={temperature:50,mq135:1500,mq2:1500,telegram:false,ppeHelmet:true,ppeGloves:true};
 function response(data:unknown,status=200){return Response.json(data,{status,headers:{'Cache-Control':'no-store'}})}
 async function cfg(key:string,fallback:any=null){const row=await env.DB!.prepare('SELECT value FROM configs WHERE key=?').bind(key).first<{value:string}>();return row?JSON.parse(row.value):fallback}
 async function put(key:string,value:unknown){await env.DB!.prepare('INSERT INTO configs(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').bind(key,JSON.stringify(value)).run()}
@@ -9,13 +10,13 @@ async function addEvent(kind:string,title:string,detail:string,mode='demo',state
  const id=crypto.randomUUID();await env.DB!.prepare('INSERT INTO events VALUES(?,?,?,?,?,?,?,?)').bind(id,Date.now(),kind,title,detail,mode,state,'not requested').run();return id;
 }
 async function notify(id:string,title:string,detail:string,mode:string){
- const settings=await cfg('settings',defaults),chat=await cfg('telegram_chat');if(!settings.telegram||!chat)return;
+ const settings=await cfg('settings',defaults),chat=await cfg('telegram_chat');if(!settings.telegram||!chat){await env.DB!.prepare('UPDATE events SET notification=? WHERE id=?').bind(!settings.telegram?'alerts disabled':'recipient not linked',id).run();return;}
  let state='accepted';try{await telegram('sendMessage',{chat_id:chat,text:`${mode==='demo'?'TEST • ':''}EdgeGuard\n${title}\n${detail}\n${new Date().toISOString()}`})}catch{state='failed'}
  await env.DB!.prepare('UPDATE events SET notification=? WHERE id=?').bind(state,id).run();
 }
 export async function GET(req:Request){
  if(!await authorized(req,(env as any).DASHBOARD_KEY))return response({error:'Unlock the workspace with your dashboard key. Configure DASHBOARD_KEY (32+ random characters) in Cloudflare secrets first.'},401);
- try{const settings=await cfg('settings',defaults);const events=await env.DB!.prepare('SELECT * FROM events ORDER BY created DESC LIMIT 300').all();const rows=await env.DB!.prepare('SELECT * FROM readings ORDER BY created DESC LIMIT 120').all();return response({settings,events:events.results,readings:rows.results,telegram:{configured:!!(env as any).TELEGRAM_BOT_TOKEN,linked:!!await cfg('telegram_chat')}})}catch{return response({error:'Database not initialized or unavailable. Use Settings → Initialize database, or check the DB binding in Cloudflare.'},503)}
+ try{const settings={...defaults,...await cfg('settings',defaults)};const events=await env.DB!.prepare('SELECT * FROM events ORDER BY created DESC LIMIT 300').all();const rows=await env.DB!.prepare('SELECT * FROM readings ORDER BY created DESC LIMIT 120').all();return response({settings,events:events.results,readings:rows.results,telegram:{configured:!!(env as any).TELEGRAM_BOT_TOKEN,linked:!!await cfg('telegram_chat')}})}catch{return response({error:'Database not initialized or unavailable. Use Settings → Initialize database, or check the DB binding in Cloudflare.'},503)}
 }
 export async function POST(req:Request){
  const path=new URL(req.url).pathname.split('/').pop();
@@ -40,9 +41,17 @@ export async function POST(req:Request){
  }
 
  if(path==='settings'){
-  const s={temperature:Number(body.temperature),mq135:Number(body.mq135),mq2:Number(body.mq2),telegram:body.telegram===true};
+  const s={temperature:Number(body.temperature),mq135:Number(body.mq135),mq2:Number(body.mq2),telegram:body.telegram===true,ppeHelmet:body.ppeHelmet!==false,ppeGloves:body.ppeGloves!==false};
   if(!Number.isFinite(s.temperature)||s.temperature<0||s.temperature>300||!Number.isFinite(s.mq135)||s.mq135<1||s.mq135>2500||!Number.isFinite(s.mq2)||s.mq2<1||s.mq2>2500)return response({error:'Temperature must be 0–300 °C; gas thresholds 1–2500 mV.'},400);
   await put('settings',s);return response({ok:true});
+ }
+ if(path==='vision'){
+  if(!['NO-Hardhat','NO-Gloves'].includes(body.label)||body.model!==MODEL_ID||!Number.isFinite(body.confidence)||body.confidence<.5||body.confidence>1||!Number.isInteger(body.samples)||body.samples<3||body.samples>1000000||!Number.isFinite(body.duration_ms)||body.duration_ms<2000||body.duration_ms>86400000)return response({error:'Invalid camera evidence'},400);
+  const settings=await cfg('settings',defaults);if(settings[body.label==='NO-Hardhat'?'ppeHelmet':'ppeGloves']===false)return response({ok:true,ignored:'rule disabled'});
+  const kind='vision_'+body.label,id=crypto.randomUUID(),now=Date.now(),title=body.label==='NO-Hardhat'?'Possible missing helmet':'Possible missing gloves';
+  const detail=`Unverified camera screening. Human check required. Model score ${Math.round(body.confidence*100)}%, ${body.samples} samples over ${Math.round(body.duration_ms/1000)} seconds. ${MODEL_ID}.`;
+  const result=await env.DB!.prepare("INSERT INTO events SELECT ?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM events WHERE kind=? AND (state IN ('active','acknowledged') OR created>?))").bind(id,now,kind,title,detail,'vision','active','not requested',kind,now-60000).run();
+  if(!result.meta.changes)return response({ok:true,deduplicated:true});await notify(id,title,detail,'vision');return response({ok:true});
  }
  if(path==='incident'){
   const scenarios:any={gas:['Gas signal elevated','MQ-2 simulated signal exceeded the configured demonstration threshold.'],temperature:['Probe temperature elevated','Simulated probe temperature exceeded the demonstration threshold.'],ppe:['PPE check requires attention','Manually simulated missing glove. This is not a camera detection.'],offline:['Device connection interrupted','Simulated device loss. No hardware is currently connected.']};
@@ -60,7 +69,7 @@ export async function POST(req:Request){
  if(path==='telegram-verify'){
   const pending=await cfg('link');if(!pending||Date.now()>pending.expires)return response({error:'Create a new connection link; the old one expired.'},400);
   const updates=await telegram('getUpdates',{limit:100,timeout:0});
-  const match=updates.find((u:any)=>u.message?.chat?.type==='private'&&u.message?.text===`/start ${pending.code}`&&u.message.date*1000>pending.expires-600000);
+  const match=updates.find((u:any)=>u.message?.chat?.type==='private'&&u.message?.text===`/start ${pending.code}`&&u.message.date>=Math.floor((pending.expires-600000)/1000));
   if(!match)return response({error:'Press Start in the bot, then verify again. Use a dedicated bot with no webhook.'},400);
   await put('telegram_chat',String(match.message.chat.id));await put('link',null);return response({ok:true});
  }
