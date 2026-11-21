@@ -25,3 +25,6 @@ Build, TypeScript, rule-unit tests and local authenticated API smoke tests are p
 
 ## v1.4 asset delivery
 The pinned model is now downloaded and SHA-256 checked at build time, split into three static files below 25 MiB each, and hosted with the website. Browsers load it from the same origin and verify each part. Video remains local. Worker output is ES module format for the ONNX runtime dynamic import. Earlier direct browser download instructions are superseded.
+
+## v1.5 persistent model cache
+Verified model parts are saved in browser Cache Storage under a revision-specific key. Reopening the camera reuses valid saved parts; corrupt parts are replaced and completed parts survive an interrupted download. Clearing site data, private browsing restrictions, storage eviction or a new model revision can require downloading again. The runtime still initializes on each camera start. This does not add video recording or guarantee offline operation.
