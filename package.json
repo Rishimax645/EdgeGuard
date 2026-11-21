@@ -14,8 +14,8 @@
     "db:generate": "drizzle-kit generate",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "prebuild": "node scripts/prepare-ort.mjs",
-    "predev": "node scripts/prepare-ort.mjs"
+    "prebuild": "node scripts/prepare-ort.mjs && node scripts/prepare-model.mjs",
+    "predev": "node scripts/prepare-ort.mjs && node scripts/prepare-model.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

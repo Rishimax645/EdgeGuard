@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import * as ort from 'onnxruntime-web/wasm';
+const folder='dist/client/models/safetyvision-56a71758/';
+const manifest=JSON.parse(readFileSync(folder+'manifest.json','utf8'));
+const parts=manifest.parts.map(p=>{const bytes=readFileSync(folder+p.name);assert.ok(bytes.length<25*1024*1024);assert.equal(bytes.length,p.size);assert.equal(createHash('sha256').update(bytes).digest('hex'),p.sha256);return bytes});
+const bytes=Buffer.concat(parts);assert.equal(bytes.length,manifest.size);assert.equal(createHash('sha256').update(bytes).digest('hex'),'ea18ae903a566e8fa76f3ee1c503075522dca269269315e9c862efa170430b35');
+ort.env.wasm.numThreads=1;const session=await ort.InferenceSession.create(bytes,{executionProviders:['wasm']});
+const output=await session.run({[session.inputNames[0]]:new ort.Tensor('float32',new Float32Array(3*640*640),[1,3,640,640])});assert.deepEqual(output[session.outputNames[0]].dims,[1,17,8400]);await session.release();
+console.log('PASS: hosted asset sizes, per-part integrity, reconstructed model checksum and actual WASM inference');

@@ -11,7 +11,7 @@ export default function PpeMonitor({video,helmet,gloves,onViolation}:Props){
  try{worker=new PpeWorker();}catch(e){setError('Cannot start PPE engine: '+(e instanceof Error?e.message:'Worker unavailable'));return}
  const fail=(message:string)=>{if(disposed)return;ready=false;inflight=false;confirmation.reset();setBoxes([]);setWarning('');setError(message);worker.terminate()};
  worker.onerror=()=>fail('PPE engine could not start. Check model access, then retry.');
- const loadTimeout=setTimeout(()=>fail('Model loading timed out. Check your internet connection and retry.'),210000);
+ const loadTimeout=setTimeout(()=>fail('Model loading timed out. Check your internet connection and retry.'),600000);
  worker.onmessage=({data})=>{if(disposed)return;if(data.type==='error'){clearTimeout(loadTimeout);fail(data.text);return}if(data.type==='status'){setStatus(data.text);return}if(data.type==='ready'){clearTimeout(loadTimeout);ready=true;setStatus('AI ready · show your head and hands');return}
  if(data.type==='result'){inflight=false;if(document.hidden){confirmation.reset();setBoxes([]);setWarning('');return}setBoxes(data.boxes);setSize([data.width,data.height]);
  const confirmed=confirmation.update(data.boxes,Date.now(),latest.current.helmet,latest.current.gloves);

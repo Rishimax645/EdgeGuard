@@ -22,3 +22,6 @@ Camera events appear in either sensor mode. Open or acknowledged incidents suppr
 
 ## Validation and limitations
 Build, TypeScript, rule-unit tests and local authenticated API smoke tests are provided. Live webcam accuracy and real Telegram delivery must be tested on the user's equipment. Prior evaluation on the user's screenshot returned no detections above 0.50: this is not a validated safety system. Training or a better camera view may be required. Never present the simulation button as a real camera detection. Browser model downloads require internet access and enough device memory. Closing or hiding the page stops/pauses camera evaluation; this is not unattended server monitoring.
+
+## v1.4 asset delivery
+The pinned model is now downloaded and SHA-256 checked at build time, split into three static files below 25 MiB each, and hosted with the website. Browsers load it from the same origin and verify each part. Video remains local. Worker output is ES module format for the ONNX runtime dynamic import. Earlier direct browser download instructions are superseded.
