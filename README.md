@@ -9,7 +9,7 @@ See [CLOUDFLARE_SETUP.md](CLOUDFLARE_SETUP.md) for the current deployment and se
 - Incident acknowledgement, demo resolution, CSV/JSON exports and printable reports.
 - Server-side Telegram account linking and test/incident messages.
 - Authenticated ESP32 ingestion endpoint prepared for later hardware integration.
-
+Camera deployment: PPE beta v1.2
 ## Current limitations
 Camera preview is implemented; automatic helmet/cap and glove inference is NOT installed. A trained model and validation are still required.
 Telegram requires a dedicated bot token and recipient linking; delivery has not been tested with the owner's credentials.
