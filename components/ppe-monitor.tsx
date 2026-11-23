@@ -19,12 +19,12 @@ export default function PpeMonitor({video,helmet,gloves,onViolation}:Props){
  const sightings = data.boxes as Detection[];
  const describe = (present: string, missing: string, enabled: boolean) => {
    if (!enabled) return 'Disabled';
-   if (confirmed.some(e => e.label === missing)) return 'Possible violation';
-   if (sightings.some(b => b.label === missing)) return 'Checking possible violation';
+   if (confirmed.some(e => e.label === missing)) return 'Missing';
+   if (sightings.some(b => b.label === missing)) return 'Checking…';
    const count = sightings.filter(b => b.label === present).length;
-   if (present === 'Gloves' && count === 1) return 'One glove detected · other hand unassessed';
-   if (count > 0) return present === 'Gloves' ? 'Gloves visible · verify both hands' : 'Helmet visible · verify fit';
-   return 'Unassessed';
+   if (present === 'Gloves' && count === 1) return 'One visible · other hand not clear';
+   if (count > 0) return present === 'Gloves' ? 'Gloves visible' : 'Helmet visible';
+   return 'Not clear';
  };
  setStatus('Helmet: '+describe('Hardhat','NO-Hardhat',latest.current.helmet)
    +' | Gloves: '+describe('Gloves','NO-Gloves',latest.current.gloves));
@@ -34,5 +34,5 @@ export default function PpeMonitor({video,helmet,gloves,onViolation}:Props){
  const timer=setInterval(async()=>{if(document.hidden){confirmation.reset();setBoxes([]);setWarning('');setStatus('Paused while this tab is hidden');return}if(inflight&&Date.now()-last>30000){fail('PPE inference timed out. Retry or close other heavy applications.');return}const v=video.current;if(!ready||inflight||!v||v.readyState<2||v.paused||v.ended||v.currentTime===lastVideoTime)return;lastVideoTime=v.currentTime;inflight=true;last=Date.now();try{const bitmap=await createImageBitmap(v);if(disposed){bitmap.close();return}worker.postMessage({type:'frame',bitmap},[bitmap])}catch{fail('Cannot read the camera frame. Restart the camera.')}},100);
  return()=>{disposed=true;clearTimeout(loadTimeout);clearInterval(timer);worker.terminate()};
  },[retry,video]);
- return <><svg className="ppe-overlay" viewBox={`0 0 ${size[0]} ${size[1]}`} preserveAspectRatio="xMidYMid meet" aria-label="PPE detections">{boxes.map((b,i)=><g key={i} stroke={b.label.startsWith('NO-')?'#ff5e62':'#45e6a5'}><rect x={b.x} y={b.y} width={b.w} height={b.h} fill="none" strokeWidth={3}/><text x={b.x+4} y={Math.max(20,b.y+20)} fill="white" stroke="black" strokeWidth={.5} fontSize={18}>{b.label} {Math.round(b.score*100)}%</text></g>)}</svg><div className={'ppe-status '+(error?'ppe-error':'')} role={error?'alert':'status'}>{error||status}{error&&<button onClick={()=>setRetry(x=>x+1)}>Retry AI</button>}</div>{warning&&<div className="ppe-warning" role="alert">{warning} — check now</div>}</>;
+ return <><svg className="ppe-overlay" viewBox={`0 0 ${size[0]} ${size[1]}`} preserveAspectRatio="xMidYMid meet" aria-label="PPE detections">{boxes.map((b,i)=><g key={i} stroke={b.label.startsWith('NO-')?'#ff5e62':'#45e6a5'}><rect x={b.x} y={b.y} width={b.w} height={b.h} fill="none" strokeWidth={3}/><text x={b.x+4} y={Math.max(20,b.y+20)} fill="white" stroke="black" strokeWidth={.5} fontSize={18}>{{Hardhat:'Helmet',Gloves:'Glove','NO-Hardhat':'Bare head','NO-Gloves':'Bare hand'}[b.label] ?? b.label}</text></g>)}</svg><div className={'ppe-status '+(error?'ppe-error':'')} role={error?'alert':'status'}>{error||status}{error&&<button onClick={()=>setRetry(x=>x+1)}>Retry AI</button>}</div>{warning&&<div className="ppe-warning" role="alert">{warning} — check now</div>}</>;
 }
