@@ -16,7 +16,18 @@ export default function PpeMonitor({video,helmet,gloves,onViolation}:Props){
  if(data.type==='result'){inflight=false;if(document.hidden){confirmation.reset();setBoxes([]);setWarning('');return}setBoxes(data.boxes);setSize([data.width,data.height]);
  const confirmed=confirmation.update(data.boxes,Date.now(),latest.current.helmet,latest.current.gloves);
  setWarning(confirmed.map(e=>e.label==='NO-Hardhat'?'Possible missing helmet':'Possible missing gloves').join(' · '));
- const relevant=data.boxes.filter((b:Detection)=>b.label!=='Person');setStatus(relevant.length?'AI running · review highlighted detections':'Unable to assess PPE · move closer; show head and hands');
+ const sightings = data.boxes as Detection[];
+ const describe = (present: string, missing: string, enabled: boolean) => {
+   if (!enabled) return 'Disabled';
+   if (confirmed.some(e => e.label === missing)) return 'Possible violation';
+   if (sightings.some(b => b.label === missing)) return 'Checking possible violation';
+   const count = sightings.filter(b => b.label === present).length;
+   if (present === 'Gloves' && count === 1) return 'One glove detected · other hand unassessed';
+   if (count > 0) return present === 'Gloves' ? 'Gloves visible · verify both hands' : 'Helmet visible · verify fit';
+   return 'Unassessed';
+ };
+ setStatus('Helmet: '+describe('Hardhat','NO-Hardhat',latest.current.helmet)
+   +' | Gloves: '+describe('Gloves','NO-Gloves',latest.current.gloves));
  for(const e of confirmed){const now=Date.now();if(now-(sent.get(e.label)||0)<60000)continue;sent.set(e.label,now);latest.current.onViolation(e).catch(()=>{if(!disposed){setError('Warning detected, but saving or notification failed. Check the connection.');sent.set(e.label,Date.now()-45000)}})}
  }};
  worker.postMessage({type:'load',runtime:new URL('/ort/',location.origin).href});
