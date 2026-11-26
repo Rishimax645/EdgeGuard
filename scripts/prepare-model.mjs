@@ -9,7 +9,7 @@ if(!spec)throw Error('Unknown PPE model '+id);
 const folder='public/models/ppe';
 const local='.cache/'+id+'.onnx';
 let model;
-try{model=await readFile(local);console.log('Using local PPE model '+local)}catch{
+try{model=await readFile(spec.path||local);console.log('Using local PPE model '+(spec.path||local))}catch{
  console.log('Downloading PPE model '+id+'…');
  const r=await fetch(spec.url,{signal:AbortSignal.timeout(300000)});
  if(!r.ok)throw Error(`PPE model download failed (HTTP ${r.status}) from ${spec.url}. Train it with training/train_ppe.ipynb and upload it as a GitHub release asset, or put it at ${local}.`);

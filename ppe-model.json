@@ -1,19 +1,71 @@
 {
-  "active": "edgeguard-ppe-yolo11s-v1",
+  "active": "edgeguard-ppe-yolo11n-v1",
   "models": {
-    "edgeguard-ppe-yolo11s-v1": {
-      "url": "https://github.com/Rishimax645/EdgeGuard/releases/download/ppe-model-v1/edgeguard-ppe-yolo11s.onnx",
-      "sha256": null,
-      "classes": ["helmet","gloves","vest","boots","goggles","Person","no_helmet","no_goggle","no_gloves","no_boots","forklift","no_vest"],
-      "map": {"helmet":"Hardhat","no_helmet":"NO-Hardhat","gloves":"Gloves","no_gloves":"NO-Gloves","Person":"Person"},
-      "thresholds": {"Hardhat":0.45,"NO-Hardhat":0.5,"Gloves":0.35,"NO-Gloves":0.45,"Person":0.4}
+    "edgeguard-ppe-yolo11n-v1": {
+      "url": null,
+      "sha256": "3931a089cf3af9008904fa4627b9ec95e27e259fa6e1f872f6d5dfb311daac0d",
+      "classes": [
+        "helmet",
+        "gloves",
+        "vest",
+        "boots",
+        "goggles",
+        "Person",
+        "no_helmet",
+        "no_goggle",
+        "no_gloves",
+        "no_boots",
+        "forklift",
+        "no_vest"
+      ],
+      "map": {
+        "helmet": "Hardhat",
+        "no_helmet": "NO-Hardhat",
+        "gloves": "Gloves",
+        "no_gloves": "NO-Gloves",
+        "Person": "Person"
+      },
+      "thresholds": {
+        "Hardhat": 0.45,
+        "NO-Hardhat": 0.5,
+        "Gloves": 0.35,
+        "NO-Gloves": 0.45,
+        "Person": 0.4
+      },
+      "path": "models/edgeguard-ppe-yolo11n.onnx"
     },
     "safetyvision-v2-640-56a71758": {
       "url": "https://huggingface.co/ayushgupta7777/safetyvision-yolov8/resolve/56a71758b55f0e9f2b4b2d6b51a779a1f882da10/v2/best_640.onnx",
       "sha256": "ea18ae903a566e8fa76f3ee1c503075522dca269269315e9c862efa170430b35",
-      "classes": ["Fall-Detected","Gloves","Goggles","Hardhat","Mask","NO-Gloves","NO-Goggles","NO-Hardhat","NO-Mask","NO-Safety Vest","No_Harness","Person","Safety Vest"],
-      "map": {"Hardhat":"Hardhat","NO-Hardhat":"NO-Hardhat","Gloves":"Gloves","NO-Gloves":"NO-Gloves","Person":"Person"},
-      "thresholds": {"Hardhat":0.5,"NO-Hardhat":0.5,"Gloves":0.5,"NO-Gloves":0.5,"Person":0.5}
+      "classes": [
+        "Fall-Detected",
+        "Gloves",
+        "Goggles",
+        "Hardhat",
+        "Mask",
+        "NO-Gloves",
+        "NO-Goggles",
+        "NO-Hardhat",
+        "NO-Mask",
+        "NO-Safety Vest",
+        "No_Harness",
+        "Person",
+        "Safety Vest"
+      ],
+      "map": {
+        "Hardhat": "Hardhat",
+        "NO-Hardhat": "NO-Hardhat",
+        "Gloves": "Gloves",
+        "NO-Gloves": "NO-Gloves",
+        "Person": "Person"
+      },
+      "thresholds": {
+        "Hardhat": 0.5,
+        "NO-Hardhat": 0.5,
+        "Gloves": 0.5,
+        "NO-Gloves": 0.5,
+        "Person": 0.5
+      }
     }
   }
 }

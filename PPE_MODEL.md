@@ -1,6 +1,8 @@
 # PPE model (v2.0)
 
-The active model is configured in **`ppe-model.json`** (`active`). Default: **`edgeguard-ppe-yolo11s-v1`** — YOLO11s fine-tuned on the Ultralytics Construction-PPE dataset (classes include `helmet`, `no_helmet`, `gloves`, `no_gloves`, `Person`), trained with `training/train_ppe.ipynb` and published as a GitHub release asset (`ppe-model-v1/edgeguard-ppe-yolo11s.onnx`).
+The active model is configured in **`ppe-model.json`** (`active`). Default: **`edgeguard-ppe-yolo11n-v1`** — YOLO11n fine-tuned (25 epochs, 512 px) on the Ultralytics Construction-PPE dataset, committed at `models/edgeguard-ppe-yolo11n.onnx` (10.7 MB, sha256 `3931a089…ac0d`).
+
+Validation (200 images, mAP50): helmet 0.76, gloves 0.76, Person 0.91, no_helmet 0.55, no_gloves 0.59. On the four bundled sample images it returns helmet/gloves/no-helmet/no-gloves correctly (these samples come from the same dataset, so this is a sanity check, not an independent test). For a stronger model, run `training/train_ppe.ipynb` on a GPU (YOLO11s, 120 epochs, plus your own webcam images) and add it as a new entry.
 
 Why the change: SafetyVision v2 scored glove classes below 0.50 on every test image and returned nothing on close-up webcam frames (see PPE_COMPARISON.md). Construction-PPE has explicit glove/no-glove labels; adding your own webcam images in the notebook is the biggest accuracy lever.
 
