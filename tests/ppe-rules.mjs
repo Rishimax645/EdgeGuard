@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import ts from 'typescript';
 import fs from 'node:fs';
-const js=ts.transpileModule(fs.readFileSync('lib/ppe/rules.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const src=fs.readFileSync('lib/ppe/rules.ts','utf8').replace("import config from '../../ppe-model.json';",'const config='+fs.readFileSync('ppe-model.json','utf8')+';');
+const js=ts.transpileModule(src,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const {Confirmation,decode}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
 const box={label:'NO-Gloves',score:.8,x:0,y:0,w:10,h:10};let c=new Confirmation();
 assert.equal(c.update([box],1000).length,0);assert.equal(c.update([box],2000).length,0);assert.equal(c.update([box],3000).length,1);
@@ -9,5 +10,6 @@ c.reset();c.update([box],1000);c.update([],2000);assert.equal(c.update([box],400
 c.reset();for(let t=1000;t<5000;t+=1000)assert.equal(c.update([box],t,true,false).length,0);
 c.reset();for(let t=1000;t<5000;t+=1000)assert.equal(c.update([{...box,label:'Person'}],t).length,0);
 assert.throws(()=>decode(new Float32Array(1),[1,84,1],640,480));
-const d=new Float32Array(34);for(let i=0;i<2;i++){d[i]=320;d[2+i]=320;d[4+i]=100;d[6+i]=100;d[18+i]=.8}assert.equal(decode(d,[1,17,2],640,640).length,1);
+const cfg=JSON.parse(fs.readFileSync('ppe-model.json','utf8')),spec=cfg.models[cfg.active],C=4+spec.classes.length,g=spec.classes.indexOf(Object.keys(spec.map).find(k=>spec.map[k]==='NO-Gloves'));
+const d=new Float32Array(C*2);for(let i=0;i<2;i++){d[i]=320;d[2+i]=320;d[4+i]=100;d[6+i]=100;d[(4+g)*2+i]=.8}const out=decode(d,[1,C,2],640,640);assert.equal(out.length,1);assert.equal(out[0].label,'NO-Gloves');
 console.log('PASS: sustained evidence, reset, disabled rules, no inference from missing boxes, shape checks and NMS');

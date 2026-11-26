@@ -1,18 +1,26 @@
-import {mkdir,readFile,writeFile} from 'node:fs/promises';
+// Downloads (or reuses) the active PPE ONNX model from ppe-model.json, verifies it,
+// and splits it into same-origin parts under public/models/ppe/.
+// Override the active model with PPE_MODEL=<id>, or drop a local file at .cache/<id>.onnx.
+import {mkdir,readFile,writeFile,rm} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-const revision='56a71758b55f0e9f2b4b2d6b51a779a1f882da10';
-const folder='public/models/safetyvision-'+revision.slice(0,8);
-await mkdir(folder,{recursive:true});
+const config=JSON.parse(await readFile('ppe-model.json','utf8'));
+const id=process.env.PPE_MODEL||config.active,spec=config.models[id];
+if(!spec)throw Error('Unknown PPE model '+id);
+const folder='public/models/ppe';
+const local='.cache/'+id+'.onnx';
 let model;
-try{model=await readFile('.cache/ppe-model.onnx')}catch{
- console.log('Downloading pinned PPE model for hosting with EdgeGuard…');
- const response=await fetch(`https://huggingface.co/ayushgupta7777/safetyvision-yolov8/resolve/${revision}/v2/best_640.onnx`,{signal:AbortSignal.timeout(180000)});
- if(!response.ok)throw Error('PPE model download failed: HTTP '+response.status);
- model=Buffer.from(await response.arrayBuffer());
+try{model=await readFile(local);console.log('Using local PPE model '+local)}catch{
+ console.log('Downloading PPE model '+id+'…');
+ const r=await fetch(spec.url,{signal:AbortSignal.timeout(300000)});
+ if(!r.ok)throw Error(`PPE model download failed (HTTP ${r.status}) from ${spec.url}. Train it with training/train_ppe.ipynb and upload it as a GitHub release asset, or put it at ${local}.`);
+ model=Buffer.from(await r.arrayBuffer());
+ await mkdir('.cache',{recursive:true});await writeFile(local,model);
 }
-if(model.length<40000000||model.length>50000000)throw Error('Unexpected PPE model size');
-const checksum=createHash('sha256').update(model).digest('hex');
-if(checksum!=='ea18ae903a566e8fa76f3ee1c503075522dca269269315e9c862efa170430b35')throw Error('PPE model checksum mismatch');
-const parts=[];for(let start=0;start<model.length;start+=16*1024*1024){const bytes=model.subarray(start,start+16*1024*1024),name=`part-${parts.length}.bin`;await writeFile(folder+'/'+name,bytes);parts.push({name,size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')})}
-await writeFile(folder+'/manifest.json',JSON.stringify({revision,size:model.length,sha256:checksum,parts}));
-console.log(`Prepared ${parts.length} same-origin model assets (${model.length} bytes)`);
+if(model.length<1e6||model.length>200e6)throw Error('Unexpected PPE model size '+model.length);
+const sha256=createHash('sha256').update(model).digest('hex');
+if(spec.sha256&&spec.sha256!==sha256)throw Error('PPE model checksum mismatch for '+id);
+if(!spec.sha256)console.warn(`Note: pin "sha256": "${sha256}" for ${id} in ppe-model.json`);
+await rm(folder,{recursive:true,force:true});await mkdir(folder,{recursive:true});
+const parts=[];for(let s=0;s<model.length;s+=16*1024*1024){const b=model.subarray(s,s+16*1024*1024),name=`part-${parts.length}.bin`;await writeFile(folder+'/'+name,b);parts.push({name,size:b.length,sha256:createHash('sha256').update(b).digest('hex')})}
+await writeFile(folder+'/manifest.json',JSON.stringify({id,size:model.length,sha256,parts}));
+console.log(`Prepared ${parts.length} model part(s) for ${id} (${model.length} bytes)`);

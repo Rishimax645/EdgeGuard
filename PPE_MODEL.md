@@ -1,30 +1,16 @@
-# EdgeGuard camera demonstration
+# PPE model (v2.0)
 
-Use an industrial safety helmet and protective gloves, one person close to the camera, with head and both hands clearly visible. Ordinary caps are not supported. Keep the monitoring page visible. No predictions are fabricated when PPE cannot be assessed.
+The active model is configured in **`ppe-model.json`** (`active`). Default: **`edgeguard-ppe-yolo11s-v1`** — YOLO11s fine-tuned on the Ultralytics Construction-PPE dataset (classes include `helmet`, `no_helmet`, `gloves`, `no_gloves`, `Person`), trained with `training/train_ppe.ipynb` and published as a GitHub release asset (`ppe-model-v1/edgeguard-ppe-yolo11s.onnx`).
 
-## Model
-SafetyVision YOLOv8s v2, pinned to Hugging Face revision 56a71758b55f0e9f2b4b2d6b51a779a1f882da10, v2/best_640.onnx (~43 MB).
-Source: https://huggingface.co/ayushgupta7777/safetyvision-yolov8
-Upstream: https://github.com/ayushgupta07xx/SafetyVision
-Model license: AGPL-3.0. New PPE integration code is provided under AGPL-3.0 (see LICENSE); existing third-party notices remain applicable. Source is available at https://github.com/Rishimax645/EdgeGuard .
-ONNX Runtime Web 1.24.3 is MIT licensed. Model weights are downloaded directly by the browser, not committed to the repository.
+Why the change: SafetyVision v2 scored glove classes below 0.50 on every test image and returned nothing on close-up webcam frames (see PPE_COMPARISON.md). Construction-PPE has explicit glove/no-glove labels; adding your own webcam images in the notebook is the biggest accuracy lever.
 
-RGB letterbox input [1,3,640,640], grey 114 padding, normalization 0–1. Output [1,17,8400]; class scores are used directly, class-wise NMS IoU 0.45. Relevant classes: Gloves, Hardhat, NO-Gloves, NO-Hardhat and Person. Score threshold 0.50.
+Pipeline (unchanged): RGB letterbox 640×640, grey 114, 0–1 normalisation, ONNX Runtime Web WASM in a Web Worker; frames never leave the browser. Decoding is now generic for any YOLOv8/YOLO11 head (`[1, 4+classes, 8400]`), and model class names are mapped to EdgeGuard's canonical labels (`Hardhat`, `NO-Hardhat`, `Gloves`, `NO-Gloves`, `Person`), so the UI, API and Telegram rules are unchanged. Per-label thresholds live in `ppe-model.json` (gloves 0.35 / no-gloves 0.45 by default). A positive and its negative overlapping the same region are cross-suppressed, keeping only the higher score.
 
-Only explicit negative predictions can raise a warning. Absence of a positive prediction is NOT treated as proof of missing PPE. At least three consecutive processed samples spanning two seconds are required; gaps above ten seconds reset confirmation. This is scene-level screening, not person tracking. Keep one person in view. Hidden hands and distant objects may produce no assessment.
+Warnings still need ≥3 consecutive negative samples across ≥2 s; absence of a box is never treated as missing PPE. This remains screening, not a certified safety system.
 
-Frames remain on the browser device and run in a Web Worker using WASM. The model host sees the model-download request; it does not receive camera frames. Only negative labels, score, sample count, duration and model version are sent to the authenticated EdgeGuard API. Telegram receives text only.
+## Switching models
+- Build with `PPE_MODEL=safetyvision-v2-640-56a71758` to use the old model (and set `active` to the same id so the runtime matches).
+- Any YOLOv8/11 ONNX works: add an entry with `url`, `sha256`, `classes`, `map`, `thresholds`.
+- Local file override: `.cache/<model-id>.onnx`.
 
-## Notifications
-Configure server TELEGRAM_BOT_TOKEN. In Settings create a Telegram connection link, open it and press Start, then Verify connection and Send test. Enable Send Telegram on new incidents and Save rules. A token alone does not link a recipient. Keep credentials out of GitHub.
-
-Camera events appear in either sensor mode. Open or acknowledged incidents suppress repeats; after manual review/closure, at least 60 seconds from the previous event creation is required for a new record. Acknowledging is not proof the hazard has cleared. A disabled rule stops new events; existing records require review. API acceptance is not a Telegram delivery/read receipt.
-
-## Validation and limitations
-Build, TypeScript, rule-unit tests and local authenticated API smoke tests are provided. Live webcam accuracy and real Telegram delivery must be tested on the user's equipment. Prior evaluation on the user's screenshot returned no detections above 0.50: this is not a validated safety system. Training or a better camera view may be required. Never present the simulation button as a real camera detection. Browser model downloads require internet access and enough device memory. Closing or hiding the page stops/pauses camera evaluation; this is not unattended server monitoring.
-
-## v1.4 asset delivery
-The pinned model is now downloaded and SHA-256 checked at build time, split into three static files below 25 MiB each, and hosted with the website. Browsers load it from the same origin and verify each part. Video remains local. Worker output is ES module format for the ONNX runtime dynamic import. Earlier direct browser download instructions are superseded.
-
-## v1.5 persistent model cache
-Verified model parts are saved in browser Cache Storage under a revision-specific key. Reopening the camera reuses valid saved parts; corrupt parts are replaced and completed parts survive an interrupted download. Clearing site data, private browsing restrictions, storage eviction or a new model revision can require downloading again. The runtime still initializes on each camera start. This does not add video recording or guarantee offline operation.
+Model licence: Ultralytics YOLO11 weights and training code are AGPL-3.0, consistent with this repository's licence.

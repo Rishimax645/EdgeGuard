@@ -1,16 +1,16 @@
 import * as ort from 'onnxruntime-web/wasm';
 import {modelPart} from './model-cache';
-import {decode} from './rules';
+import {decode,MODEL_ID} from './rules';
 let session:ort.InferenceSession;
 self.onmessage=async({data})=>{try{
  if(data.type==='load'){
  ort.env.wasm.numThreads=1;ort.env.wasm.proxy=false;ort.env.wasm.wasmPaths=data.runtime;
  self.postMessage({type:'status',text:'Loading AI files from EdgeGuard…'});
- const folder=new URL('/models/safetyvision-56a71758/',data.runtime);
+ const folder=new URL('/models/ppe/',data.runtime);
  async function getFile(url:URL){try{const r=await fetch(url,{signal:AbortSignal.timeout(180000)});if(!r.ok)throw Error('HTTP '+r.status);return r}catch(e){throw Error('Cannot download '+url.pathname+': '+(e instanceof Error?e.message:'network failure'))}}
- const manifest=await (await getFile(new URL('manifest.json',folder))).json() as {revision:string;size:number;parts:{name:string;size:number;sha256:string}[]};
- if(manifest.revision!=='56a71758b55f0e9f2b4b2d6b51a779a1f882da10'||!Array.isArray(manifest.parts)||manifest.parts.length!==3||manifest.size<40000000||manifest.size>50000000)throw Error('PPE model manifest is invalid. Reload the latest deployment.');
- let cache:Cache|null=null;try{cache=await caches.open('edgeguard-ppe-56a71758-v1')}catch{}
+ const manifest=await (await getFile(new URL('manifest.json',folder))).json() as {id:string;size:number;parts:{name:string;size:number;sha256:string}[]};
+ if(manifest.id!==MODEL_ID||!Array.isArray(manifest.parts)||!manifest.parts.length||manifest.size<1e6||manifest.size>2e8)throw Error('PPE model manifest is invalid. Reload the latest deployment.');
+ let cache:Cache|null=null;try{cache=await caches.open('edgeguard-ppe-'+MODEL_ID)}catch{}
  const model=new Uint8Array(manifest.size);let offset=0;
  for(let i=0;i<manifest.parts.length;i++){
   const part=manifest.parts[i];if(part.name!==`part-${i}.bin`)throw Error('Invalid model asset name');

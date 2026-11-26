@@ -18,7 +18,7 @@ assert.equal((await call('readings',{})).status,401);
 assert.equal((await call('telegram-test',{})).status,400);
 assert.equal((await call('initialize',{},key,{Origin:'https://example.invalid'})).status,403);
 console.log('PASS: auth, forged-header rejection, initialization, persistence, validation, incident deduplication/resolution, device isolation, Telegram setup guard, cross-origin rejection');
-const evidence={label:'NO-Gloves',confidence:.8,samples:3,duration_ms:2100,model:'safetyvision-v2-640-56a71758'};
+const evidence={label:'NO-Gloves',confidence:.8,samples:3,duration_ms:2100,model:JSON.parse((await import('node:fs')).readFileSync('ppe-model.json','utf8')).active};
 assert.equal((await call('vision',evidence,'wrong')).status,401);
 assert.equal((await call('vision',{...evidence,samples:1})).status,400);
 assert.equal((await call('vision',{...evidence,label:'Person'})).status,400);
